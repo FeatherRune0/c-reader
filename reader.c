@@ -2,6 +2,23 @@
 #include <string.h>
 #include <clang-c/Index.h>
 
+enum CXChildVisitResult visitFunctionProto(CXCursor cursor, CXCursor parent, CXClientData clientData) {
+    enum CXCursorKind kind = clang_getCursorKind(cursor);
+
+    if (kind == CXCursor_ParmDecl) {
+        CXString parmNameStr = clang_getCursorSpelling(cursor);
+        CXType parmType = clang_getCursorType(cursor);
+        CXString parmTypeStr = clang_getTypeSpelling(parmType);
+
+        printf("(%s) %s\n", clang_getCString(parmTypeStr), clang_getCString(parmNameStr));
+
+        clang_disposeString(parmTypeStr);
+        clang_disposeString(parmNameStr);
+    }
+
+    return CXChildVisit_Recurse;
+}
+
 enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData clientData) {
     // ref https://clang.llvm.org/doxygen/group__CINDEX__STRING.html
     CXString cursorStr = clang_getCursorSpelling(cursor);
@@ -54,8 +71,43 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         break;
     }
 
+    case CXCursor_TypedefDecl:
+        printf("Typedef for %s", clang_getCString(cursorStr));
+        CXType underlyingType = clang_getTypedefDeclUnderlyingType(cursor);
+        CXType newType = clang_getCursorType(cursor);
+        CXString underlyingTypeStr = clang_getTypeSpelling(underlyingType);
+        CXString newTypeStr = clang_getTypeSpelling(newType);
+        printf(": %s => %s\n", clang_getCString(newTypeStr), clang_getCString(underlyingTypeStr));
+        
+        CXType resultType = clang_getResultType(clang_getPointeeType(underlyingType));
+        CXString resultTypeStr = clang_getTypeSpelling(resultType);
+
+        CXType canonicalType = clang_getCanonicalType(clang_getPointeeType(underlyingType));
+        
+        nArgs = clang_getNumArgTypes(canonicalType);
+        if (nArgs != -1) {
+            // function types only
+            printf("Returns : %s\nArguments : %d\n",
+                clang_getCString(resultTypeStr),
+                nArgs
+            );
+            // Parse the children of this node in order to get parameter names
+            clang_visitChildren(
+                cursor,
+                &visitFunctionProto,
+                NULL
+            );
+        }
+
+        clang_disposeString(resultTypeStr);
+
+        clang_disposeString(newTypeStr);
+        clang_disposeString(underlyingTypeStr);
+        break;
+
     case CXCursor_EnumDecl:
         // do nothing as this can be handled from the constant declarations
+    case CXCursor_ParmDecl:
     case CXCursor_UnaryOperator:
     case CXCursor_IntegerLiteral:
         break;
