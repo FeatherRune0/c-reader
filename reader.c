@@ -2,6 +2,24 @@
 #include <string.h>
 #include <clang-c/Index.h>
 
+// Used specifically for visiting enums
+enum CXChildVisitResult visitEnum(CXCursor cursor, CXCursor parent, CXClientData clientData) {
+    enum CXCursorKind kind = clang_getCursorKind(cursor);
+
+    if (kind == CXCursor_EnumConstantDecl) {
+        CXString constantNameStr = clang_getCursorSpelling(cursor);
+
+        printf("\t\t%s = %lld\n",
+            clang_getCString(constantNameStr),
+            clang_getEnumConstantDeclValue(cursor)
+        );
+
+        clang_disposeString(constantNameStr);
+    }
+
+    return CXChildVisit_Recurse;
+}
+
 // Used specifically for visiting structures
 enum CXChildVisitResult visitStructure(CXCursor cursor, CXCursor parent, CXClientData clientData) {
     enum CXCursorKind kind = clang_getCursorKind(cursor);
@@ -80,27 +98,6 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
 
         break;
 
-    // TODO: if an enum is not named but typedef'd, we will not get
-    // anything useful from EnumConstantDecl and EnumDecl
-    case CXCursor_EnumConstantDecl:
-    {
-        CXCursor enumConstDecl = clang_getCursorDefinition(parent);
-        CXString enumConstDeclStr = clang_getCursorSpelling(enumConstDecl);
-        const char *enumName = clang_getCString(enumConstDeclStr);
-        if (strlen(enumName) > 0) {
-            printf("From %s", enumName);
-        } else {
-            printf("From anonymous enum");
-        }
-        printf(", constant %s = %lld\n",
-            clang_getCString(cursorStr),
-            clang_getEnumConstantDeclValue(cursor)
-        );
-
-        clang_disposeString(enumConstDeclStr);
-        break;
-    }
-
     case CXCursor_TypedefDecl:
         printf("Typedef");
         CXType underlyingType = clang_getTypedefDeclUnderlyingType(cursor);
@@ -145,9 +142,33 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         );
     break;
 
-    case CXCursor_FieldDecl:
     case CXCursor_EnumDecl:
-        // see case for EnumConstantDecl
+    {
+        CXString enumTypeStr = clang_getTypeSpelling(clang_getCursorType(cursor));
+        
+        char *enumName = NULL;
+        if (strlen(clang_getCString(cursorStr)) == 0) {
+            // anonymous enum does not have a name
+            enumName = (char *) clang_getCString(enumTypeStr);
+        } else {
+            enumName = (char *) clang_getCString(cursorStr);
+        }
+        printf("Enum %s\n", enumName);
+
+        clang_disposeString(enumTypeStr);
+
+        // Parse the children of this node in order to get the constants
+        clang_visitChildren(
+            cursor,
+            &visitEnum,
+            NULL
+        );
+        
+        break;
+    }
+
+    case CXCursor_EnumConstantDecl:
+    case CXCursor_FieldDecl:
     case CXCursor_TypeRef:
         // as we are already getting the types and we can get the cursor
         // to the declaration if necessary
