@@ -2,6 +2,24 @@
 #include <string.h>
 #include <clang-c/Index.h>
 
+// Used specifically for visiting structures
+enum CXChildVisitResult visitStructure(CXCursor cursor, CXCursor parent, CXClientData clientData) {
+    enum CXCursorKind kind = clang_getCursorKind(cursor);
+
+    if (kind == CXCursor_FieldDecl) {
+        CXString fieldNameStr = clang_getCursorSpelling(cursor);
+        CXType fieldType = clang_getCursorType(cursor);
+        CXString fieldTypeStr = clang_getTypeSpelling(fieldType);
+
+        printf("\t\t(%s) %s\n", clang_getCString(fieldTypeStr), clang_getCString(fieldNameStr));
+
+        clang_disposeString(fieldTypeStr);
+        clang_disposeString(fieldNameStr);
+    }
+
+    return CXChildVisit_Recurse;
+}
+
 // Used specifically for visiting function prototypes defined with a typedef
 enum CXChildVisitResult visitFunctionProto(CXCursor cursor, CXCursor parent, CXClientData clientData) {
     enum CXCursorKind kind = clang_getCursorKind(cursor);
@@ -111,7 +129,18 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         clang_disposeString(newTypeStr);
         clang_disposeString(underlyingTypeStr);
         break;
+    
+    case CXCursor_StructDecl:
+        printf("Struct %s\n", clang_getCString(cursorStr));
+        // Parse the children of this node in order to get fields
+        clang_visitChildren(
+            cursor,
+            &visitStructure,
+            NULL
+        );
+    break;
 
+    case CXCursor_FieldDecl:
     case CXCursor_EnumDecl:
         // see case for EnumConstantDecl
     case CXCursor_TypeRef:
