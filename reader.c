@@ -2,6 +2,7 @@
 #include <string.h>
 #include <clang-c/Index.h>
 
+// Used specifically for visiting function prototypes defined with a typedef
 enum CXChildVisitResult visitFunctionProto(CXCursor cursor, CXCursor parent, CXClientData clientData) {
     enum CXCursorKind kind = clang_getCursorKind(cursor);
 
@@ -19,11 +20,15 @@ enum CXChildVisitResult visitFunctionProto(CXCursor cursor, CXCursor parent, CXC
     return CXChildVisit_Recurse;
 }
 
+// general purpose visitor
 enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData clientData) {
     // ref https://clang.llvm.org/doxygen/group__CINDEX__STRING.html
+    
+    // get the name of the current node
     CXString cursorStr = clang_getCursorSpelling(cursor);
-    CXString kindStr = clang_getCursorKindSpelling(clang_getCursorKind(cursor));
+    // get the kind of node (function declaration, struct declaration, etc)
     enum CXCursorKind kind = clang_getCursorKind(cursor);
+    CXString kindStr = clang_getCursorKindSpelling(kind);
 
     switch (kind)
     {
@@ -52,6 +57,8 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
 
         break;
 
+    // TODO: if an enum is not named but typedef'd, we will not get
+    // anything useful from EnumConstantDecl and EnumDecl
     case CXCursor_EnumConstantDecl:
     {
         CXCursor enumConstDecl = clang_getCursorDefinition(parent);
@@ -106,7 +113,7 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         break;
 
     case CXCursor_EnumDecl:
-        // do nothing as this can be handled from the constant declarations
+        // see case for EnumConstantDecl
     case CXCursor_TypeRef:
         // as we are already getting the types and we can get the cursor
         // to the declaration if necessary
