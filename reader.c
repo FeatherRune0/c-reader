@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <clang-c/Index.h>
+
+// to catch anonymous enums
+char *lastEnumName = NULL;
 
 // Used specifically for visiting enums
 enum CXChildVisitResult visitEnum(CXCursor cursor, CXCursor parent, CXClientData clientData) {
@@ -153,16 +157,25 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         } else {
             enumName = (char *) clang_getCString(cursorStr);
         }
-        printf("Enum %s\n", enumName);
+
+        // Ensure we aren't re-visiting an anonymous enum
+        if (lastEnumName == NULL || strcmp(lastEnumName, enumName) != 0) {
+            if (lastEnumName != NULL) {
+                free(lastEnumName);
+            }
+            lastEnumName = (char *) malloc(strlen(enumName));
+            strcpy(lastEnumName, enumName);
+
+            printf("Enum %s\n", enumName);
+            // Parse the children of this node in order to get the constants
+            clang_visitChildren(
+                cursor,
+                &visitEnum,
+                NULL
+            );
+        }
 
         clang_disposeString(enumTypeStr);
-
-        // Parse the children of this node in order to get the constants
-        clang_visitChildren(
-            cursor,
-            &visitEnum,
-            NULL
-        );
         
         break;
     }
