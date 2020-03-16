@@ -40,6 +40,11 @@ enum CXChildVisitResult visitFunctionProto(CXCursor cursor, CXCursor parent, CXC
 
 // general purpose visitor
 enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData clientData) {
+    // avoid visiting nodes from any included libraries
+    if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
+        return CXChildVisit_Continue;
+    }
+
     // ref https://clang.llvm.org/doxygen/group__CINDEX__STRING.html
     
     // get the name of the current node
