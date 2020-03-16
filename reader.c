@@ -1,13 +1,11 @@
 #include <stdio.h>
+#include <string.h>
 #include <clang-c/Index.h>
 
 enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData clientData) {
     // ref https://clang.llvm.org/doxygen/group__CINDEX__STRING.html
     CXString cursorStr = clang_getCursorSpelling(cursor);
     CXString kindStr = clang_getCursorKindSpelling(clang_getCursorKind(cursor));
-    
-    printf("> %s of %s \n", clang_getCString(cursorStr), clang_getCString(kindStr));
-
     enum CXCursorKind kind = clang_getCursorKind(cursor);
 
     switch (kind)
@@ -36,8 +34,34 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         }
 
         break;
-    
+
+    case CXCursor_EnumConstantDecl:
+    {
+        CXCursor enumConstDecl = clang_getCursorDefinition(parent);
+        CXString enumConstDeclStr = clang_getCursorSpelling(enumConstDecl);
+        const char *enumName = clang_getCString(enumConstDeclStr);
+        if (strlen(enumName) > 0) {
+            printf("From %s", enumName);
+        } else {
+            printf("From anonymous enum");
+        }
+        printf(", constant %s = %lld\n",
+            clang_getCString(cursorStr),
+            clang_getEnumConstantDeclValue(cursor)
+        );
+
+        clang_disposeString(enumConstDeclStr);
+        break;
+    }
+
+    case CXCursor_EnumDecl:
+        // do nothing as this can be handled from the constant declarations
+    case CXCursor_UnaryOperator:
+    case CXCursor_IntegerLiteral:
+        break;
+
     default:
+        printf("> %s of %s \n", clang_getCString(cursorStr), clang_getCString(kindStr));
         break;
     }
 
