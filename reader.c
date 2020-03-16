@@ -10,7 +10,7 @@ enum CXChildVisitResult visitFunctionProto(CXCursor cursor, CXCursor parent, CXC
         CXType parmType = clang_getCursorType(cursor);
         CXString parmTypeStr = clang_getTypeSpelling(parmType);
 
-        printf("(%s) %s\n", clang_getCString(parmTypeStr), clang_getCString(parmNameStr));
+        printf("\t\t(%s) %s\n", clang_getCString(parmTypeStr), clang_getCString(parmNameStr));
 
         clang_disposeString(parmTypeStr);
         clang_disposeString(parmNameStr);
@@ -32,19 +32,19 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         
         CXType returnType = clang_getCursorResultType(cursor);
         CXString returnTypeStr = clang_getTypeSpelling(returnType);
-        printf("Return Type: %s\n", clang_getCString(returnTypeStr));
+        printf("\tReturns: %s\n", clang_getCString(returnTypeStr));
         clang_disposeString(returnTypeStr);
 
         int nArgs = clang_Cursor_getNumArguments(cursor);
         
-        printf("Arguments: %d\n", nArgs);
+        printf("\tArguments: %d\n", nArgs);
         for (int i = 0; i < nArgs; i++) {
             CXCursor argument = clang_Cursor_getArgument(cursor, i);
             CXType argumentType = clang_getCursorType(argument);
             CXString argumentTypeStr = clang_getTypeSpelling(argumentType);
             CXString argumentStr = clang_getCursorSpelling(argument);
             
-            printf("(%s) %s\n", clang_getCString(argumentTypeStr), clang_getCString(argumentStr));
+            printf("\t\t(%s) %s\n", clang_getCString(argumentTypeStr), clang_getCString(argumentStr));
 
             clang_disposeString(argumentTypeStr);
             clang_disposeString(argumentStr);
@@ -72,7 +72,7 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
     }
 
     case CXCursor_TypedefDecl:
-        printf("Typedef for %s", clang_getCString(cursorStr));
+        printf("Typedef");
         CXType underlyingType = clang_getTypedefDeclUnderlyingType(cursor);
         CXType newType = clang_getCursorType(cursor);
         CXString underlyingTypeStr = clang_getTypeSpelling(underlyingType);
@@ -87,7 +87,7 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
         nArgs = clang_getNumArgTypes(canonicalType);
         if (nArgs != -1) {
             // function types only
-            printf("Returns : %s\nArguments : %d\n",
+            printf("\tReturns : %s\n\tArguments : %d\n",
                 clang_getCString(resultTypeStr),
                 nArgs
             );
@@ -107,6 +107,9 @@ enum CXChildVisitResult visit(CXCursor cursor, CXCursor parent, CXClientData cli
 
     case CXCursor_EnumDecl:
         // do nothing as this can be handled from the constant declarations
+    case CXCursor_TypeRef:
+        // as we are already getting the types and we can get the cursor
+        // to the declaration if necessary
     case CXCursor_ParmDecl:
     case CXCursor_UnaryOperator:
     case CXCursor_IntegerLiteral:
